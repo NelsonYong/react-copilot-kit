@@ -76,7 +76,7 @@ export default function Home() {
     >
       <TodoList />
       <CopilotSidebar
-        defaultOpen={true}
+        defaultOpen={false}
         instructions={"你是一个智能助手，请根据用户的问题给出最合适的回答。"}
         RenderSuggestionsList={CustomSuggestionsList}
         labels={{
