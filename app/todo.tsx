@@ -1,6 +1,8 @@
 "use client";
 
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { CopilotTextarea } from "@copilotkit/react-textarea";
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useState, useCallback } from "react";
 import {
   PieChart as RechartsPieChart,
@@ -96,6 +98,17 @@ export default function TodoList() {
   const completionRate =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
+  // 使用聊天建议功能
+  useCopilotChatSuggestions(
+    {
+      instructions:
+        "你可以帮助用户管理待办事项，包括添加任务、查看统计、更改主题等操作。",
+      minSuggestions: 3,
+      maxSuggestions: 6,
+    },
+    [todos]
+  );
+
   // 让智能助手感知当前UI状态
   useCopilotReadable({
     description: "The current state of the todo list application",
@@ -141,49 +154,48 @@ export default function TodoList() {
   });
 
   useCopilotAction({
-    name: "addTodoItem",
+    name: "updateTodoList",
+    description: "Update the users todo list",
     parameters: [
       {
-        name: "text",
-        description: "The text content of the todo item to add.",
-        required: true,
+        name: "items",
+        type: "object[]",
+        description: "The new and updated todo list items.",
+        attributes: [
+          {
+            name: "id",
+            type: "number",
+            description:
+              "The id of the todo item. When creating a new todo item, just make up a new id.",
+          },
+          {
+            name: "text",
+            type: "string",
+            description: "The text of the todo item.",
+          },
+          {
+            name: "completed",
+            type: "boolean",
+            description: "The completion status of the todo item.",
+          },
+        ],
       },
     ],
-    handler({ text }) {
-      const newTodo: Todo = {
-        id: Date.now(),
-        text: text,
-        completed: false,
-      };
-      setTodos((prev) => [...prev, newTodo]);
+    handler: ({ items }) => {
+      const newTodos = [...todos];
+      for (const item of items) {
+        const existingItemIndex = newTodos.findIndex(
+          (todo) => todo.id === item.id
+        );
+        if (existingItemIndex !== -1) {
+          newTodos[existingItemIndex] = item;
+        } else {
+          newTodos.push(item);
+        }
+      }
+      setTodos(newTodos);
     },
-  });
-
-  useCopilotAction({
-    name: "clearCompletedTodos",
-    description: "Clear all completed todo items",
-    handler() {
-      setTodos((prev) => prev.filter((todo) => !todo.completed));
-    },
-  });
-
-  useCopilotAction({
-    name: "getTodoStatus",
-    description: "Get the current status of all todo items",
-    handler() {
-      return {
-        totalTodos: todos.length,
-        completedTodos: todos.filter((todo) => todo.completed).length,
-        pendingTodos: todos.filter((todo) => !todo.completed).length,
-        todos: todos.map((todo) => ({
-          id: todo.id,
-          text: todo.text,
-          completed: todo.completed,
-        })),
-        completionRate: completionRate,
-        themeColor: themeColor,
-      };
-    },
+    render: "Updating the todo list...",
   });
 
   // 图表汇总呈现饼状图数据
@@ -325,7 +337,6 @@ export default function TodoList() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Todo List</h1>
           <p className="text-gray-600 mb-4">
             完成 {completedCount} / {totalCount} 项任务
           </p>
@@ -344,21 +355,23 @@ export default function TodoList() {
         {/* Add Todo Form */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <div className="flex gap-2">
-            <input
-              type="text"
+            <CopilotTextarea
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent placeholder-gray-700 text-gray-900"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              onClick={(e) => e.stopPropagation()}
-              onFocus={(e) => e.stopPropagation()}
               placeholder="添加新的任务..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent placeholder-gray-700 text-gray-900"
               style={
                 {
                   "--tw-ring-color": themeColor,
                 } as React.CSSProperties
               }
+              autosuggestionsConfig={{
+                textareaPurpose:
+                  "添加新的任务，请确保任务描述清晰，不要重复添加相同的任务。",
+                chatApiConfigs: {},
+              }}
             />
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
